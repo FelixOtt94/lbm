@@ -3,6 +3,7 @@
 #include <string>
 #include <stdio.h>
 #include <vector>
+#include <math.h>
 
 #include "imageClass/GrayScaleImage.h"
 #include "imageClass/lodepng.h"
@@ -23,11 +24,6 @@ static double omega = 0.0;
 static double force_l = 0.0;
 static int numCellsX = 0;
 static int numCellsY = 0;
-
-static grid_lattice<double> grid;
-static grid_lattice<double> gridCopy;
-static grid_lattice<bool> isBoundary;
-
 
 // template class for a 2D grid
 template<typename T> class grid_lattice {
@@ -50,7 +46,7 @@ public:
         lengthInY = yDim+1;
         lengthInF = f;
     }		// Standart-constructor
-    grid_lattice(size_t xDim, size_t yDim,  size_t f=9, T value) {
+    grid_lattice(size_t xDim, size_t yDim, T value, size_t f=9) {
         data = std::vector<T>((xDim+1) * (yDim+1) * f, value);
         lengthInX = xDim+1;
         lengthInY = yDim+1;
@@ -73,14 +69,14 @@ public:
         assert(i < lengthInX);
         assert(j < lengthInY);
         assert(f < lengthInF);
-        return data[j * (lengthInX*lengthInF) + i*lengthInF +f];
+        return data[j * ((int)lengthInX*(int)lengthInF) + i*(int)lengthInF +(int)f];
     }
 
     void getCopy( grid_lattice &source ){
-        for( int i=0; i<lengthInX; i++){
-            for( int j=0; j<lengthInY; j++){
-                for( int f=0; f<lengthInF; f++){
-                    data[j * (lengthInX*lengthInF) + i*lengthInF +f] = source( i,j,f);
+        for( int i=0; i<(int)lengthInX; i++){
+            for( int j=0; j<(int)lengthInY; j++){
+                for( int f=0; f<(int)lengthInF; f++){
+                    data[j * ((int)lengthInX*(int)lengthInF) + i*(int)lengthInF +f] = source( i,j,f);
                 }
             }
         }
@@ -88,29 +84,110 @@ public:
 
 };
 
+static grid_lattice<double> grid;
+static grid_lattice<double> gridCopy;
+static grid_lattice<int> isBoundary;
 
 void streamStep(){
     gridCopy.getCopy( grid );
 
-    for( int i=0; i<grid.lengthX(); i++ ){
-        for( int j=0; j<grid.lengthY(); j++ ){
-            if( isBoundary(i,j) ){
-                // HANDLE BOUNDARY CONDITIONS
-            }else{
-                grid(i+1, j,   1) = girdCopy( i,j,1);
-                grid(i+1, j+1, 2) = girdCopy( i,j,2);
-                grid(i,   j+1, 3) = girdCopy( i,j,3);
-                grid(i-1, j+1, 4) = girdCopy( i,j,4);
-                grid(i-1, j,   5) = girdCopy( i,j,5);
-                grid(i-1, j-1, 6) = girdCopy( i,j,6);
-                grid(i,   j-1, 7) = girdCopy( i,j,7);
-                grid(i+1, j-1, 8) = girdCopy( i,j,8);
+    int lengthX = (int)grid.lengthX();
+    int lengthY = (int)grid.lengthY();
+
+    // inner grid points without cylinder
+    for( int i=1; i<lengthX-1; i++ ){
+        for( int j=1; j<lengthY-1; j++ ){
+            if( !isBoundary(i,j) && i>0 && i<numCellsX-1 ){
+                grid(i+1, j,   1) = gridCopy( i,j,1);
+                grid(i+1, j+1, 2) = gridCopy( i,j,2);
+                grid(i,   j+1, 3) = gridCopy( i,j,3);
+                grid(i-1, j+1, 4) = gridCopy( i,j,4);
+                grid(i-1, j,   5) = gridCopy( i,j,5);
+                grid(i-1, j-1, 6) = gridCopy( i,j,6);
+                grid(i,   j-1, 7) = gridCopy( i,j,7);
+                grid(i+1, j-1, 8) = gridCopy( i,j,8);
             }
         }
     }
+    // periodic RB
+    for (int i=1; i<lengthY-1; i++){
+        // linke RB
+        grid(lengthY-2, i, 4) = gridCopy( 0,i,4);
+        grid(lengthY-2, i, 5) = gridCopy( 0,i,5);
+        grid(lengthY-2, i, 6) = gridCopy( 0,i,6);
+        // rechte RB
+        grid(1, i, 1) = gridCopy( lengthX-1,i,1);
+        grid(1, i, 2) = gridCopy( lengthX-1,i,2);
+        grid(1, i, 8) = gridCopy( lengthX-1,i,8);
+    }
+    for (int i=0; i<lengthY; i++){
+        // obere RB
+        grid(i, lengthY-2, 6) = gridCopy( i,lengthY-1,2);
+        grid(i, lengthY-2, 7) = gridCopy( i,lengthY-1,3);
+        grid(i, lengthY-2, 8) = gridCopy( i,lengthY-1,4);
+        // untere RB
+        grid(i, 1, 4) = gridCopy( i,0,8);
+        grid(i, 1, 3) = gridCopy( i,0,7);
+        grid(i, 1, 2) = gridCopy( i,0,6);
+    }
+
+    // Cylinder cells
+    for( int i=1; i<lengthX-1; i++ ){
+        for( int j=1; j<lengthY-1; j++ ){
+            if( isBoundary(i,j) ){
+                grid(i-1, j,   5) = gridCopy( i,j,1);
+                grid(i, j+1,   3) = gridCopy( i,j,7);
+                grid(i, j-1,   7) = gridCopy( i,j,3);
+                grid(i+1, j,   1) = gridCopy( i,j,5);
+                grid(i-1, j-1, 6) = gridCopy( i,j,2);
+                grid(i+1, j-1, 8) = gridCopy( i,j,4);
+                grid(i+1, j+1, 2) = gridCopy( i,j,6);
+                grid(i-1, j+1, 4) = gridCopy( i,j,8);
+            }
+        }
+    }
+}
+
+void initBoundBoolean(){
+
+    int lengthX = (int)grid.lengthX();
+    int lengthY = (int)grid.lengthY();
+
+    for(int i=0; i<lengthX; ++i){
+        isBoundary(i,0) = 1;
+        isBoundary(i,lengthY-1) = 1;
+    }
+    for(int i=0; i<lengthY; ++i){
+        isBoundary(0,i) = 1;
+        isBoundary(lengthX-1,i) = 1;
+    }
+    for(int i=0; i<lengthY; ++i){
+        for(int j=0; j<lengthX; ++j){
+            if((sqrt((i*spaceing-0.008)*(i*spaceing-0.008) + (j*spaceing-0.02)*(j*spaceing-0.02))) <= 0.0025 ){
+                isBoundary(j,i) = 1;
+            }
+            else{
+                isBoundary(j,i) = 0;
+            }
+        }
+    }
+}
+
+void collideStep(){
+
+
+
+
 
 }
 
+
+
+void testStream(){
+
+
+
+}
 
 
 int main( int args, char** argv ){
@@ -120,13 +197,11 @@ int main( int args, char** argv ){
         exit( EXIT_SUCCESS );
     }
 
-
-
     if( strcmp( argv[1], "scenario1") == 0 ){
         timestep = TIMESTEP;
         spaceing = SPACEING;
         scenario1 = true;
-        viscosity_l = 1e-6 * (timestep/(spacing*spacing));
+        viscosity_l = 1e-6 * (timestep/(spaceing*spaceing));
         timeToSimulate = 3.0;
         acceleration = 0.01;
         resolution = 30;
@@ -134,14 +209,14 @@ int main( int args, char** argv ){
         //force_l =
         numCellsX = 0.06 / spaceing;
         numCellsY = 0.02 / spaceing;
-        grid = grid_lattice::grid_lattice( numCellsX, numCellsY );
-        gridCopy = grid_lattice::grid_lattice( numCellsX, numCellsY );
-        isBoundary = grid_lattice::grid_lattice( numCellsX, numCellsY, 1 );
+        grid = grid_lattice<double>( numCellsX, numCellsY );
+        gridCopy = grid_lattice<double>( numCellsX, numCellsY );
+        isBoundary = grid_lattice<int>( numCellsX, numCellsY, 0, 1 );
     }else if( strcmp( argv[1], "scenario2") == 0){
         timestep = TIMESTEP;
         spaceing = SPACEING;
         scenario1 = false;
-        viscosity_l = 1e-6 * (timestep/(spacing*spacing));
+        viscosity_l = 1e-6 * (timestep/(spaceing*spaceing));
         timeToSimulate = 5.0;
         acceleration = 0.016;
         resolution = 60;
@@ -149,9 +224,9 @@ int main( int args, char** argv ){
         //force_l =
         numCellsX = 0.06 / spaceing;
         numCellsY = 0.02 / spaceing;
-        grid = grid_lattice::grid_lattice( numCellsX, numCellsY );
-        gridCopy = grid_lattice::grid_lattice( numCellsX, numCellsY );
-        isBoundary = grid_lattice::grid_lattice( numCellsX, numCellsY, 1 );
+        grid = grid_lattice<double>( numCellsX, numCellsY );
+        gridCopy = grid_lattice<double>( numCellsX, numCellsY );
+        isBoundary = grid_lattice<int>( numCellsX, numCellsY, 0, 1 );
     }else{
         cout << "scenario has to be 1 or 2" << endl;
         exit( EXIT_SUCCESS );
