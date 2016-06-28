@@ -41,15 +41,15 @@ public:
         lengthInF = 0;
     }
     grid_lattice(size_t xDim, size_t yDim, size_t f=9) {
-        data = std::vector<T>((xDim+1) * (yDim+1) * f, (T) (0.0));
-        lengthInX = xDim+1;
-        lengthInY = yDim+1;
+        data = std::vector<T>((xDim+2) * (yDim+2) * f, (T) (0.0));
+        lengthInX = xDim+2;
+        lengthInY = yDim+2;
         lengthInF = f;
     }		// Standart-constructor
     grid_lattice(size_t xDim, size_t yDim, T value, size_t f=9) {
-        data = std::vector<T>((xDim+1) * (yDim+1) * f, value);
-        lengthInX = xDim+1;
-        lengthInY = yDim+1;
+        data = std::vector<T>((xDim+2) * (yDim+2) * f, value);
+        lengthInX = xDim+2;
+        lengthInY = yDim+2;
         lengthInF = f;
     }	// initalisation-constructor
     virtual ~grid_lattice() {
@@ -59,7 +59,7 @@ public:
         return lengthInX;
     }	// returns number of elements in x direction
     size_t lengthY() {
-        return lengthInX;
+        return lengthInY;
     }	// returns number of elements in y direction
     size_t lengthF() {
         return lengthInF;
@@ -173,20 +173,41 @@ void initBoundBoolean(){
     }
 }
 
+void initLaticeGrid(){
+    int lengthX = (int)grid.lengthX();
+    int lengthY = (int)grid.lengthY();
+
+    for(int i=1; i<lengthX-1; ++i){
+        for(int j=1; j<lengthY-1; ++j){
+            for(int f=0; f<9; ++f){
+                grid(i,j,f) = omega;
+            }
+        }
+    }
+}
+
 void collideStep(){
-
-
-
-
 
 }
 
 
 
 void testStream(){
+    int lengthX = (int)grid.lengthX();
+    int lengthY = (int)grid.lengthY();
 
-
-
+    for(int i=1; i<lengthX-1; ++i){
+        for(int j=1; j<lengthY-1; ++j){
+            for(int f=0; f<9; ++f){
+                if(grid(i,j,f) != omega){
+                    cout << "Fehler" << grid(i,j,f) << endl;
+                }
+                else{
+                    cout << "Richtig" << grid(i,j,f) << endl;
+                }
+            }
+        }
+    }
 }
 
 
@@ -207,8 +228,8 @@ int main( int args, char** argv ){
         resolution = 30;
         omega = 1.0 / (3.0*viscosity_l + 0.5 );
         //force_l =
-        numCellsX = 0.06 / spaceing;
-        numCellsY = 0.02 / spaceing;
+        numCellsX = (int)(0.06 / spaceing);
+        numCellsY = (int)(0.02 / spaceing);
         grid = grid_lattice<double>( numCellsX, numCellsY );
         gridCopy = grid_lattice<double>( numCellsX, numCellsY );
         isBoundary = grid_lattice<int>( numCellsX, numCellsY, 0, 1 );
@@ -231,15 +252,18 @@ int main( int args, char** argv ){
         cout << "scenario has to be 1 or 2" << endl;
         exit( EXIT_SUCCESS );
     }
-
-
-
+    cout << "X " << numCellsX << endl;
+    cout << "Y " << numCellsY << endl;
     cout << "timestep " << timestep << endl;
     cout << "spaceing " << spaceing << endl;
     cout << "force " << force_l << endl;
     cout << "omega " << omega << endl;
 
+    initLaticeGrid();
 
+    streamStep();
+
+    testStream();
 
     exit( EXIT_SUCCESS );
 }
