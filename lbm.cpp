@@ -9,7 +9,7 @@
 #include "imageClass/lodepng.h"
 
 #define TIMESTEP 0.001
-#define SPACEING 0.001
+#define SPACEING 0.0001
 
 using namespace std;
 
@@ -97,7 +97,7 @@ void streamStep(){
     // inner grid points without cylinder
     for( int i=1; i<lengthX-1; i++ ){
         for( int j=1; j<lengthY-1; j++ ){
-            if( !isBoundary(i,j) && i>0 && i<numCellsX-1 ){
+            if( isBoundary(i,j) == 0 && i>0 && i<numCellsX-1 ){
                 grid(i+1, j,   1) = gridCopy( i,j,1);
                 grid(i+1, j+1, 2) = gridCopy( i,j,2);
                 grid(i,   j+1, 3) = gridCopy( i,j,3);
@@ -134,7 +134,7 @@ void streamStep(){
     // Cylinder cells
     for( int i=1; i<lengthX-1; i++ ){
         for( int j=1; j<lengthY-1; j++ ){
-            if( isBoundary(i,j) ){
+            if( isBoundary(i,j)==1 ){
                 grid(i-1, j,   5) = gridCopy( i,j,1);
                 grid(i, j+1,   3) = gridCopy( i,j,7);
                 grid(i, j-1,   7) = gridCopy( i,j,3);
@@ -150,6 +150,9 @@ void streamStep(){
 
 void initBoundBoolean(){
 
+    //double magic = sqrt(0.5)*SPACEING;
+    //magic = 0.5*SPACEING;
+
     int lengthX = (int)grid.lengthX();
     int lengthY = (int)grid.lengthY();
 
@@ -161,13 +164,15 @@ void initBoundBoolean(){
         isBoundary(0,i) = 1;
         isBoundary(lengthX-1,i) = 1;
     }
-    for(int i=0; i<lengthY; ++i){
-        for(int j=0; j<lengthX; ++j){
-            if((sqrt((i*spaceing-0.008)*(i*spaceing-0.008) + (j*spaceing-0.02)*(j*spaceing-0.02))) <= 0.0025 ){
+    for(int i=1; i<lengthY-1; ++i){
+        for(int j=1; j<lengthX-1; ++j){
+            if(    (sqrt((i*spaceing-0.008)*(i*spaceing-0.008) + (j*spaceing-0.02)*(j*spaceing-0.02))) <= 0.0025 + 0.5*SPACEING  && (sqrt((i*spaceing-0.008)*(i*spaceing-0.008) + (j*spaceing-0.02)*(j*spaceing-0.02))) >= 0.0025 - 0.5*SPACEING ){
                 isBoundary(j,i) = 1;
+            }else if((sqrt((i*spaceing-0.008)*(i*spaceing-0.008) + (j*spaceing-0.02)*(j*spaceing-0.02))) <= 0.0025 -0.5*SPACEING){
+                isBoundary(j,i) = -1;
             }
             else{
-                isBoundary(j,i) = 0;
+                //isBoundary(j,i) = 0;
             }
         }
     }
@@ -259,7 +264,27 @@ int main( int args, char** argv ){
     cout << "force " << force_l << endl;
     cout << "omega " << omega << endl;
 
+
+    int lengthX = (int)grid.lengthX();
+    int lengthY = (int)grid.lengthY();
+
     initLaticeGrid();
+
+    initBoundBoolean();
+
+    for(int i=0; i<lengthY; ++i){
+        for(int j=0; j<lengthX; ++j){
+            if(isBoundary(j,i) == 0)
+                cout << "c" << " ";
+            else if(isBoundary(j,i) == 1)
+                cout << "b" << " ";
+            else if(isBoundary(j,i) == -1)
+                cout << "z" << " ";
+            else
+                cout << "!" << " ";
+        }
+        cout << endl;
+    }
 
     streamStep();
 
