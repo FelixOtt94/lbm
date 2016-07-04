@@ -9,7 +9,7 @@
 #include "imageClass/lodepng.h"
 
 #define TIMESTEP 0.001
-#define SPACEING 0.001
+#define SPACEING 0.002
 
 using namespace std;
 
@@ -25,7 +25,7 @@ static double force_l = 0.0;
 static int numCellsX = 0;
 static int numCellsY = 0;
 
-// template class for a 2D grid
+// template class for a 3D grid
 template<typename T> class grid_lattice {
 
 private:
@@ -97,7 +97,7 @@ void streamStep(){
     // inner grid points without cylinder
     for( int i=1; i<lengthX-1; i++ ){
         for( int j=1; j<lengthY-1; j++ ){
-            if( isBoundary(i,j) == 0 && i>0 && i<numCellsX-1 ){
+            if( isBoundary(i,j) == 0){
                 grid(i+1, j,   1) = gridCopy( i,j,1);
                 grid(i+1, j+1, 2) = gridCopy( i,j,2);
                 grid(i,   j+1, 3) = gridCopy( i,j,3);
@@ -109,31 +109,60 @@ void streamStep(){
             }
         }
     }
+    
+    //Es stehen noch keine RB im gridCopy!!!! Deshalb wird 0 kopiert
+    
     // periodic RB
     for (int i=1; i<lengthY-1; i++){
         // linke RB
-        grid(lengthY-2, i, 4) = gridCopy( 0,i,4);
-        grid(lengthY-2, i, 5) = gridCopy( 0,i,5);
-        grid(lengthY-2, i, 6) = gridCopy( 0,i,6);
+        grid(lengthX-2, i, 4) = gridCopy( 0,i,4);
+        grid(lengthX-2, i, 5) = gridCopy( 0,i,5);
+        grid(lengthX-2, i, 6) = gridCopy( 0,i,6);
         // rechte RB
         grid(1, i, 1) = gridCopy( lengthX-1,i,1);
         grid(1, i, 2) = gridCopy( lengthX-1,i,2);
         grid(1, i, 8) = gridCopy( lengthX-1,i,8);
     }
-    for (int i=0; i<lengthY; i++){
+    
+    //no slip RB
+    for (int i=1; i<lengthX-1; i++){
         // obere RB
-        grid(i, lengthY-2, 6) = gridCopy( i,lengthY-1,2);
-        grid(i, lengthY-2, 7) = gridCopy( i,lengthY-1,3);
-        grid(i, lengthY-2, 8) = gridCopy( i,lengthY-1,4);
+        grid(i, lengthY-2, 6) = gridCopy( i,lengthY-2,2);
+        grid(i, lengthY-2, 7) = gridCopy( i,lengthY-2,3);
+        grid(i, lengthY-2, 8) = gridCopy( i,lengthY-2,4);
         // untere RB
-        grid(i, 1, 4) = gridCopy( i,0,8);
-        grid(i, 1, 3) = gridCopy( i,0,7);
-        grid(i, 1, 2) = gridCopy( i,0,6);
+        grid(i, 1, 4) = gridCopy( i,1,8);
+        grid(i, 1, 3) = gridCopy( i,1,7);
+        grid(i, 1, 2) = gridCopy( i,1,6);
     }
+    
+    /*
+     // links unten periodic
+     grid(lengthX-2, 1, 4) = gridCopy( 0,1,4);
+     grid(lengthX-2, 1, 5) = gridCopy( 0,1,5);
+     // links oben periodic
+     grid(lengthX-2, lengthY-2, 6) = gridCopy( 0,lengthY-2,6);
+     grid(lengthX-2, lengthY-2, 5) = gridCopy( 0,lengthY-2,5);
+     // rechts unten periodic
+     grid(1, 1, 1) = gridCopy( lengthX-1,1,1);
+     grid(1, 1, 2) = gridCopy( lengthX-1,1,2);
+     // rechts oben periodic
+     grid(1, lengthY-2, 1) = gridCopy( lengthX-1,lengthY-2,1);
+     grid(1, lengthY-2, 8) = gridCopy( lengthX-1,lengthY-2,8);
+     */
+    
+    /*
+     //4 Eckpunkte separat
+     grid(lengthX-2, 0, 1) = gridCopy( 0,0, 6);
+     grid(1, i, 2) = gridCopy( 0,lengthY-1, 4);
+     grid(1, i, 8) = gridCopy( lengthX-1,0, 8);
+     grid(1, i, 1) = gridCopy( lengthX-1,lengthY-1, 2);
+     */
 
+    
     // Cylinder cells
-    for( int i=1; i<lengthX-1; i++ ){
-        for( int j=1; j<lengthY-1; j++ ){
+    for( int i=2; i<lengthX-2; i++ ){
+        for( int j=2; j<lengthY-2; j++ ){
             if( isBoundary(i,j)==1 ){
                 grid(i-1, j,   5) = gridCopy( i,j,1);
                 grid(i, j+1,   3) = gridCopy( i,j,7);
@@ -194,8 +223,10 @@ void initLaticeGrid(){
 
     for(int i=1; i<lengthX-1; ++i){
         for(int j=1; j<lengthY-1; ++j){
-            for(int f=0; f<9; ++f){
-                grid(i,j,f) = omega;
+            if(isBoundary(i,j) == 0){
+                for(int f=0; f<9; ++f){
+                    grid(i,j,f) = omega;
+                }
             }
         }
     }
@@ -213,13 +244,17 @@ void testStream(){
 
     for(int i=1; i<lengthX-1; ++i){
         for(int j=1; j<lengthY-1; ++j){
-            for(int f=0; f<9; ++f){
-                if(grid(i,j,f) != omega){
-                    cout << "Fehler" << grid(i,j,f) << endl;
+            if(isBoundary(i,j) == 0){
+                cout << "cell: " << i << "," << j << endl;
+                for(int f=0; f<9; ++f){
+                    if(grid(i,j,f) != omega){
+                        cout << f << " Fehler " << grid(i,j,f) << endl;
+                    }
+                    else{
+                        cout << f << " Richtig " << grid(i,j,f) << endl;
+                    }
                 }
-                else{
-                    cout << "Richtig" << grid(i,j,f) << endl;
-                }
+                cout << endl;
             }
         }
     }
