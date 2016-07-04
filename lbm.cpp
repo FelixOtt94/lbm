@@ -9,7 +9,7 @@
 #include "imageClass/lodepng.h"
 
 #define TIMESTEP 0.001
-#define SPACEING 0.0001
+#define SPACEING 0.001
 
 using namespace std;
 
@@ -282,7 +282,7 @@ int main( int args, char** argv ){
 
     initBoundBoolean();
 
-    for(int i=0; i<lengthY; ++i){
+    for(int i=lengthY-1; i>=0; --i){
         for(int j=0; j<lengthX; ++j){
             if(isBoundary(j,i) == 0)
                 cout << "c" << " ";
