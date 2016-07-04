@@ -176,6 +176,16 @@ void initBoundBoolean(){
             }
         }
     }
+    for(int i=1; i<lengthY-1; ++i){
+        for(int j=1; j<lengthX-1; ++j){
+            if( isBoundary(j,i) == -1 ){
+                    if( isBoundary(j-1,i-1) == 0 || isBoundary(j-1,i) == 0 ||isBoundary(j-1,i+1) == 0 || isBoundary(j,i-1) == 0 || isBoundary(j,i) == 0 || isBoundary(j,i+1) == 0 || isBoundary(j+1,i-1) == 0 || isBoundary(j+1,i) == 0 || isBoundary(j+1,i+1) == 0 ){
+                        isBoundary(j,i) = 1;
+                    }
+            }
+        }
+    }
+    
 }
 
 void initLaticeGrid(){
