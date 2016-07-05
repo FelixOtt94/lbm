@@ -8,8 +8,8 @@
 #include "imageClass/GrayScaleImage.h"
 #include "imageClass/lodepng.h"
 
-#define TIMESTEP 0.001
-#define SPACEING 0.0005
+#define TIMESTEP 0.005
+//#define SPACEING 0.0005
 
 using namespace std;
 
@@ -21,9 +21,10 @@ static int resolution = 0;
 static double timestep = 0.0;
 static double spaceing = 0.0;
 static double omega = 0.0;
-static double force_l = 0.0;
 static int numCellsX = 0;
 static int numCellsY = 0;
+static int steps = 0;
+
 
 // template class for a 3D grid
 template<typename T> class grid_lattice {
@@ -176,9 +177,9 @@ void initBoundBoolean(){
     }
     for(int i=1; i<lengthY-1; ++i){
         for(int j=1; j<lengthX-1; ++j){
-            if(    (sqrt((i*spaceing-0.008)*(i*spaceing-0.008) + (j*spaceing-0.02)*(j*spaceing-0.02))) <= 0.0025 + 0.5*SPACEING  && (sqrt((i*spaceing-0.008)*(i*spaceing-0.008) + (j*spaceing-0.02)*(j*spaceing-0.02))) >= 0.0025 - 0.5*SPACEING ){
+            if(    (sqrt((i*spaceing-0.008)*(i*spaceing-0.008) + (j*spaceing-0.02)*(j*spaceing-0.02))) <= 0.0025 + 0.5*spaceing  && (sqrt((i*spaceing-0.008)*(i*spaceing-0.008) + (j*spaceing-0.02)*(j*spaceing-0.02))) >= 0.0025 - 0.5*spaceing ){
                 isBoundary(j,i) = 1;
-            }else if((sqrt((i*spaceing-0.008)*(i*spaceing-0.008) + (j*spaceing-0.02)*(j*spaceing-0.02))) <= 0.0025 -0.5*SPACEING){
+            }else if((sqrt((i*spaceing-0.008)*(i*spaceing-0.008) + (j*spaceing-0.02)*(j*spaceing-0.02))) <= 0.0025 -0.5*spaceing){
                 isBoundary(j,i) = -1;
             }
             else{
@@ -253,8 +254,6 @@ void collideStep(){
                 skalar = 1*velosity[0];
                 equilibrium(j,i,1) = ein_neun * density * (1.0 + 3.0*skalar + 4.5*skalar*skalar - 1.5* skalar_u);
 
-                std::cout << "v1 " << velosity[0] << "v2 " << velosity[1] << "d " << density << std::endl;
-
                 skalar = 1*velosity[0] + 1*velosity[1];
                 equilibrium(j,i,2) = ein_sechs * density * (1.0 + 3.0*skalar + 4.5*skalar*skalar - 1.5* skalar_u);
 
@@ -287,6 +286,7 @@ void collideStep(){
                 grid(j,i,7) = grid(j,i,7) - omega * (grid(j,i,7) - equilibrium(j,i,7)) + 3 * ein_neun * density * 0 * acceleration;
                 grid(j,i,8) = grid(j,i,8) - omega * (grid(j,i,8) - equilibrium(j,i,8)) + 3 * ein_sechs * density * 1 * acceleration;
 
+                //cout << "density: " << density << endl;
                 density = 0.0;
             }
         }
@@ -302,18 +302,116 @@ void testStream(){
             if(isBoundary(i,j) == 0){
                 cout << "cell: " << i << "," << j << endl;
                 for(int f=0; f<9; ++f){
-                    if(grid(i,j,f) != omega){
-                        cout << f << " Fehler " << grid(i,j,f) << endl;
+                    if(f==0){
+                        if(grid(i,j,f) == 4.0/9.0){
+                            cout << f << " Richtig " << grid(i,j,f) << endl;
+                        }else{
+                            cout << f << " Falsch " << grid(i,j,f) << endl;
+                        }
                     }
-                    else{
-                        cout << f << " Richtig " << grid(i,j,f) << endl;
+
+                    if(f==1 || f==3 || f==5 || f==7){
+                        if(grid(i,j,f) == 1.0/9.0){
+                            cout << f << " Richtig " << grid(i,j,f) << endl;
+                        }else{
+                            cout << f << " Falsch " << grid(i,j,f) << endl;
+                        }
                     }
+
+                    if(f==2 || f==4 || f==6 || f==8){
+                        if(grid(i,j,f) == 1.0/36.0){
+                            cout << f << " Richtig " << grid(i,j,f) << endl;
+                        }else{
+                            cout << f << " Falsch " << grid(i,j,f) << endl;
+                        }
+                    }
+
                 }
                 cout << endl;
             }
         }
     }
 }
+
+void printDomain(){
+    int lengthX = (int)grid.lengthX();
+    int lengthY = (int)grid.lengthY();
+
+        for(int i=lengthY-1; i>=0; --i){
+            for(int j=0; j<lengthX; ++j){
+                if(isBoundary(j,i) == 0)
+                    cout << "c" << " ";
+                else if(isBoundary(j,i) == 1)
+                    cout << "b" << " ";
+                else if(isBoundary(j,i) == -1)
+                    cout << "z" << " ";
+                else
+                    cout << "!" << " ";
+            }
+            cout << endl;
+        }
+}
+
+void ausgabeBild(){
+
+
+
+    double velosity [2];
+    double density= 0.0;
+    double speed = 0.0;
+    double max_speed = 0.0;
+
+    int lengthX = (int)grid.lengthX();
+    int lengthY = (int)grid.lengthY();
+
+    GrayScaleImage image = GrayScaleImage(numCellsX, numCellsY);
+
+    for(int j = 1; j<lengthY-1; ++j){
+        for(int i = 1; i<lengthX-1; ++i){
+            if(isBoundary(i,j) == 0){
+                for(int k=0; k<9; k++){
+                    density += grid(i,j,k);
+                }
+                //cout << "density bild: " << density << endl;
+                velosity[0] = grid(i,j,1)+ grid(i,j,2) - grid(i,j,4) - grid(i,j,5) - grid(i,j,6) + grid(i,j,8);
+                velosity[1] = grid(i,j,2)+ grid(i,j,3) + grid(i,j,4) - grid(i,j,6) - grid(i,j,7) - grid(i,j,8);
+                velosity[0] = velosity[0] / density;
+                velosity[1] = velosity[1] / density;
+                speed = sqrt(velosity[0]*velosity[0]+velosity[1]*velosity[1]);
+                //cout << "speed bild: " << speed << endl;
+                if(speed > max_speed){
+                    max_speed = speed;
+                }
+                density = 0.0;
+            }
+        }
+    }
+
+    cout << "max speed bild: " << max_speed << endl;
+
+    for(int j = 1; j<lengthY-1; ++j){
+        for(int i = 1; i<lengthX-1; ++i){
+            if(isBoundary(i,j) == 0){
+                for(int k=0; k<9; k++){
+                    density += grid(i,j,k);
+                }
+                velosity[0] = grid(i,j,1)+ grid(i,j,2) - grid(i,j,4) - grid(i,j,5) - grid(i,j,6) + grid(i,j,8);
+                velosity[1] = grid(i,j,2)+ grid(i,j,3) + grid(i,j,4) - grid(i,j,6) - grid(i,j,7) - grid(i,j,8);
+                velosity[0] = velosity[0] / density;
+                velosity[1] = velosity[1] / density;
+                speed = sqrt(velosity[0]*velosity[0]+velosity[1]*velosity[1]);
+
+                image.setElement(i-1, j-1, (speed/max_speed));
+
+                density=0.0;
+            }
+        }
+     }
+
+    image.save("Bild.png");
+
+}
+
 
 int main( int args, char** argv ){
 
@@ -324,7 +422,7 @@ int main( int args, char** argv ){
 
     if( strcmp( argv[1], "scenario1") == 0 ){
         timestep = TIMESTEP;
-        spaceing = SPACEING;
+        spaceing = 0.005/30;
         scenario1 = true;
         viscosity_l = 1e-6 * (timestep/(spaceing*spaceing));
         timeToSimulate = 3.0;
@@ -337,9 +435,10 @@ int main( int args, char** argv ){
         gridCopy = grid_lattice<double>( numCellsX, numCellsY );
         isBoundary = grid_lattice<int>( numCellsX, numCellsY, 0, 1 );
         equilibrium = grid_lattice<double>( numCellsX, numCellsY );
+        steps = timeToSimulate/timestep;
     }else if( strcmp( argv[1], "scenario2") == 0){
         timestep = TIMESTEP;
-        spaceing = SPACEING;
+        spaceing = 0.005/60;
         scenario1 = false;
         viscosity_l = 1e-6 * (timestep/(spaceing*spaceing));
         timeToSimulate = 5.0;
@@ -352,6 +451,7 @@ int main( int args, char** argv ){
         gridCopy = grid_lattice<double>( numCellsX, numCellsY );
         isBoundary = grid_lattice<int>( numCellsX, numCellsY, 0, 1 );
         equilibrium = grid_lattice<double>( numCellsX, numCellsY );
+        steps = timeToSimulate/timestep;
     }else{
         cout << "scenario has to be 1 or 2" << endl;
         exit( EXIT_SUCCESS );
@@ -360,35 +460,55 @@ int main( int args, char** argv ){
     cout << "Y " << numCellsY << endl;
     cout << "timestep " << timestep << endl;
     cout << "spaceing " << spaceing << endl;
-    cout << "force " << force_l << endl;
+    cout << "accel " << acceleration << endl;
     cout << "omega " << omega << endl;
+    cout << "viscosity " << viscosity_l << endl;
 
-    acceleration = 0.0;
 
+
+    cout << "Start Inits" << endl;
     initLaticeGrid();
-
     initBoundBoolean();
 
-/*
-    for(int i=lengthY-1; i>=0; --i){
-        for(int j=0; j<lengthX; ++j){
-            if(isBoundary(j,i) == 0)
-                cout << "c" << " ";
-            else if(isBoundary(j,i) == 1)
-                cout << "b" << " ";
-            else if(isBoundary(j,i) == -1)
-                cout << "z" << " ";
-            else
-                cout << "!" << " ";
-        }
-        cout << endl;
-    }
-*/
+    /*
+    //Test Stream Step
+    streamStep();
+    testStream();
+    */
+    /*
+    //Test Collide Step
+    collideStep();
+    testStream();
+    */
 
-    for(int i=0; i<timestep; ++i){
+
+    cout << "Start Berechnung" << endl;
+    for(int i=0; i<steps; ++i){
         streamStep();
         collideStep();
     }
 
+
+    cout << "Start Ausgabe Bild" << endl;
+    ausgabeBild();
+
+
     exit( EXIT_SUCCESS );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
