@@ -9,7 +9,7 @@
 #include "imageClass/lodepng.h"
 
 #define TIMESTEP 0.001
-#define SPACEING 0.002
+#define SPACEING 0.0005
 
 using namespace std;
 
@@ -87,6 +87,7 @@ public:
 static grid_lattice<double> grid;
 static grid_lattice<double> gridCopy;
 static grid_lattice<int> isBoundary;
+static grid_lattice<double> equilibrium;
 
 void streamStep(){
     gridCopy.getCopy( grid );
@@ -111,55 +112,35 @@ void streamStep(){
     }
     
     //Es stehen noch keine RB im gridCopy!!!! Deshalb wird 0 kopiert
-    
+
     // periodic RB
     for (int i=1; i<lengthY-1; i++){
         // linke RB
-        grid(lengthX-2, i, 4) = gridCopy( 0,i,4);
-        grid(lengthX-2, i, 5) = gridCopy( 0,i,5);
-        grid(lengthX-2, i, 6) = gridCopy( 0,i,6);
+        grid(lengthX-2, i, 4) = grid( 0,i,4);
+        grid(lengthX-2, i, 5) = grid( 0,i,5);
+        grid(lengthX-2, i, 6) = grid( 0,i,6);
         // rechte RB
-        grid(1, i, 1) = gridCopy( lengthX-1,i,1);
-        grid(1, i, 2) = gridCopy( lengthX-1,i,2);
-        grid(1, i, 8) = gridCopy( lengthX-1,i,8);
+        grid(1, i, 1) = grid( lengthX-1,i,1);
+        grid(1, i, 2) = grid( lengthX-1,i,2);
+        grid(1, i, 8) = grid( lengthX-1,i,8);
     }
     
     //no slip RB
     for (int i=1; i<lengthX-1; i++){
         // obere RB
-        grid(i, lengthY-2, 6) = gridCopy( i,lengthY-2,2);
-        grid(i, lengthY-2, 7) = gridCopy( i,lengthY-2,3);
-        grid(i, lengthY-2, 8) = gridCopy( i,lengthY-2,4);
+        grid(i-1, lengthY-2, 6) = grid( i,lengthY-1,2);
+        grid(i, lengthY-2, 7) = grid( i,lengthY-1,3);
+        grid(i+1, lengthY-2, 8) = grid( i,lengthY-1,4);
         // untere RB
-        grid(i, 1, 4) = gridCopy( i,1,8);
-        grid(i, 1, 3) = gridCopy( i,1,7);
-        grid(i, 1, 2) = gridCopy( i,1,6);
+        grid(i-1, 1, 4) = grid( i,0,8);
+        grid(i, 1, 3) = grid( i,0,7);
+        grid(i+1, 1, 2) = grid( i,0,6);
     }
-    
-    /*
-     // links unten periodic
-     grid(lengthX-2, 1, 4) = gridCopy( 0,1,4);
-     grid(lengthX-2, 1, 5) = gridCopy( 0,1,5);
-     // links oben periodic
-     grid(lengthX-2, lengthY-2, 6) = gridCopy( 0,lengthY-2,6);
-     grid(lengthX-2, lengthY-2, 5) = gridCopy( 0,lengthY-2,5);
-     // rechts unten periodic
-     grid(1, 1, 1) = gridCopy( lengthX-1,1,1);
-     grid(1, 1, 2) = gridCopy( lengthX-1,1,2);
-     // rechts oben periodic
-     grid(1, lengthY-2, 1) = gridCopy( lengthX-1,lengthY-2,1);
-     grid(1, lengthY-2, 8) = gridCopy( lengthX-1,lengthY-2,8);
-     */
-    
-    /*
-     //4 Eckpunkte separat
-     grid(lengthX-2, 0, 1) = gridCopy( 0,0, 6);
-     grid(1, i, 2) = gridCopy( 0,lengthY-1, 4);
-     grid(1, i, 8) = gridCopy( lengthX-1,0, 8);
-     grid(1, i, 1) = gridCopy( lengthX-1,lengthY-1, 2);
-     */
+    grid(1, 1, 2) = grid( 0,0, 6);
+    grid(1, lengthY-2, 8) = grid( 0,lengthY-1, 4);
+    grid(lengthX-2, 1, 4) = grid( lengthX-1,0, 8);
+    grid(lengthX-2,lengthY-2, 6) = grid( lengthX-1,lengthY-1, 2);
 
-    
     // Cylinder cells
     for( int i=2; i<lengthX-2; i++ ){
         for( int j=2; j<lengthY-2; j++ ){
@@ -224,9 +205,15 @@ void initLaticeGrid(){
     for(int i=1; i<lengthX-1; ++i){
         for(int j=1; j<lengthY-1; ++j){
             if(isBoundary(i,j) == 0){
-                for(int f=0; f<9; ++f){
-                    grid(i,j,f) = omega;
-                }
+                    grid(i,j,0) = 4.0/9.0;
+                    grid(i,j,1) = 1.0/9.0;
+                    grid(i,j,3) = 1.0/9.0;
+                    grid(i,j,5) = 1.0/9.0;
+                    grid(i,j,7) = 1.0/9.0;
+                    grid(i,j,2) = 1.0/36.0;
+                    grid(i,j,4) = 1.0/36.0;
+                    grid(i,j,6) = 1.0/36.0;
+                    grid(i,j,8) = 1.0/36.0;
             }
         }
     }
@@ -234,9 +221,77 @@ void initLaticeGrid(){
 
 void collideStep(){
 
+    int lengthX = (int)grid.lengthX();
+    int lengthY = (int)grid.lengthY();
+    double density = 0.0;
+    double velosity[2];
+    double skalar = 0.0;
+    double skalar_u = 0.0;
+    double vier_neun = 4.0/9.0;
+    double ein_neun = 1.0/9.0;
+    double ein_sechs = 1.0/36.0;
+
+    for( int i=1; i<lengthY-1; i++ ){
+        for( int j=1; j<lengthX-1; j++ ){
+            if(isBoundary(j,i) == 0){
+
+                for(int k=0; k<9; k++){
+                    density += grid(j,i,k);
+                }
+
+                velosity[0] = grid(j,i,1)+ grid(j,i,2) - grid(j,i,4) - grid(j,i,5) - grid(j,i,6) + grid(j,i,8);
+                velosity[1] = grid(j,i,2)+ grid(j,i,3) + grid(j,i,4) - grid(j,i,6) - grid(j,i,7) - grid(j,i,8);
+                velosity[0] = velosity[0] / density;
+                velosity[1] = velosity[1] / density;
+
+                // Compute equilibrium distribution
+                skalar_u = (velosity[0] * velosity[0]) + (velosity[1] * velosity[1]);
+
+                skalar = 0;
+                equilibrium(j,i,0) = vier_neun * density * (1.0 + 3.0*skalar + 4.5*skalar*skalar - 1.5* skalar_u);
+
+                skalar = 1*velosity[0];
+                equilibrium(j,i,1) = ein_neun * density * (1.0 + 3.0*skalar + 4.5*skalar*skalar - 1.5* skalar_u);
+
+                std::cout << "v1 " << velosity[0] << "v2 " << velosity[1] << "d " << density << std::endl;
+
+                skalar = 1*velosity[0] + 1*velosity[1];
+                equilibrium(j,i,2) = ein_sechs * density * (1.0 + 3.0*skalar + 4.5*skalar*skalar - 1.5* skalar_u);
+
+                skalar = 1*velosity[1];
+                equilibrium(j,i,3) = ein_neun * density * (1.0 + 3.0*skalar + 4.5*skalar*skalar - 1.5* skalar_u);
+
+                skalar = -1*velosity[0] + 1*velosity[1];
+                equilibrium(j,i,4) = ein_sechs * density * (1.0 + 3.0*skalar + 4.5*skalar*skalar - 1.5* skalar_u);
+
+                skalar = -1*velosity[0];
+                equilibrium(j,i,5) = ein_neun * density * (1.0 + 3.0*skalar + 4.5*skalar*skalar - 1.5* skalar_u);
+
+                skalar = -1*velosity[0] + -1*velosity[1];
+                equilibrium(j,i,6) = ein_sechs * density * (1.0 + 3.0*skalar + 4.5*skalar*skalar - 1.5* skalar_u);
+
+                skalar = -1*velosity[1];
+                equilibrium(j,i,7) = ein_neun * density * (1.0 + 3.0*skalar + 4.5*skalar*skalar - 1.5* skalar_u);
+
+                skalar = 1*velosity[0] + -1*velosity[1];
+                equilibrium(j,i,8) = ein_sechs * density * (1.0 + 3.0*skalar + 4.5*skalar*skalar - 1.5* skalar_u);
+
+                // Update rule for grid
+                grid(j,i,0) = grid(j,i,0) - omega * (grid(j,i,0) - equilibrium(j,i,0)) + 3 * vier_neun * density * 0 * acceleration;
+                grid(j,i,1) = grid(j,i,1) - omega * (grid(j,i,1) - equilibrium(j,i,1)) + 3 * ein_neun * density * 1 * acceleration;
+                grid(j,i,2) = grid(j,i,2) - omega * (grid(j,i,2) - equilibrium(j,i,2)) + 3 * ein_sechs * density * 1 * acceleration;
+                grid(j,i,3) = grid(j,i,3) - omega * (grid(j,i,3) - equilibrium(j,i,3)) + 3 * ein_neun * density * 0 * acceleration;
+                grid(j,i,4) = grid(j,i,4) - omega * (grid(j,i,4) - equilibrium(j,i,4)) + 3 * ein_sechs * density * -1 * acceleration;
+                grid(j,i,5) = grid(j,i,5) - omega * (grid(j,i,5) - equilibrium(j,i,5)) + 3 * ein_neun * density * -1 * acceleration;
+                grid(j,i,6) = grid(j,i,6) - omega * (grid(j,i,6) - equilibrium(j,i,6)) + 3 * ein_sechs * density * -1 * acceleration;
+                grid(j,i,7) = grid(j,i,7) - omega * (grid(j,i,7) - equilibrium(j,i,7)) + 3 * ein_neun * density * 0 * acceleration;
+                grid(j,i,8) = grid(j,i,8) - omega * (grid(j,i,8) - equilibrium(j,i,8)) + 3 * ein_sechs * density * 1 * acceleration;
+
+                density = 0.0;
+            }
+        }
+    }
 }
-
-
 
 void testStream(){
     int lengthX = (int)grid.lengthX();
@@ -260,7 +315,6 @@ void testStream(){
     }
 }
 
-
 int main( int args, char** argv ){
 
     if( args != 2 ){
@@ -277,12 +331,12 @@ int main( int args, char** argv ){
         acceleration = 0.01;
         resolution = 30;
         omega = 1.0 / (3.0*viscosity_l + 0.5 );
-        //force_l =
         numCellsX = (int)(0.06 / spaceing);
         numCellsY = (int)(0.02 / spaceing);
         grid = grid_lattice<double>( numCellsX, numCellsY );
         gridCopy = grid_lattice<double>( numCellsX, numCellsY );
         isBoundary = grid_lattice<int>( numCellsX, numCellsY, 0, 1 );
+        equilibrium = grid_lattice<double>( numCellsX, numCellsY );
     }else if( strcmp( argv[1], "scenario2") == 0){
         timestep = TIMESTEP;
         spaceing = SPACEING;
@@ -292,12 +346,12 @@ int main( int args, char** argv ){
         acceleration = 0.016;
         resolution = 60;
         omega = 1.0 / (3.0*viscosity_l + 0.5 );
-        //force_l =
         numCellsX = 0.06 / spaceing;
         numCellsY = 0.02 / spaceing;
         grid = grid_lattice<double>( numCellsX, numCellsY );
         gridCopy = grid_lattice<double>( numCellsX, numCellsY );
         isBoundary = grid_lattice<int>( numCellsX, numCellsY, 0, 1 );
+        equilibrium = grid_lattice<double>( numCellsX, numCellsY );
     }else{
         cout << "scenario has to be 1 or 2" << endl;
         exit( EXIT_SUCCESS );
@@ -309,14 +363,13 @@ int main( int args, char** argv ){
     cout << "force " << force_l << endl;
     cout << "omega " << omega << endl;
 
-
-    int lengthX = (int)grid.lengthX();
-    int lengthY = (int)grid.lengthY();
+    acceleration = 0.0;
 
     initLaticeGrid();
 
     initBoundBoolean();
 
+/*
     for(int i=lengthY-1; i>=0; --i){
         for(int j=0; j<lengthX; ++j){
             if(isBoundary(j,i) == 0)
@@ -330,10 +383,12 @@ int main( int args, char** argv ){
         }
         cout << endl;
     }
+*/
 
-    streamStep();
-
-    testStream();
+    for(int i=0; i<timestep; ++i){
+        streamStep();
+        collideStep();
+    }
 
     exit( EXIT_SUCCESS );
 }
