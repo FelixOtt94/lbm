@@ -409,8 +409,12 @@ void ausgabeBild(){
             }
         }
      }
+    if(scenario1){
+            image.save("scenario1.png");
+    }else{
+        image.save("scenario2.png");
+    }
 
-    image.save("Bild.png");
 
 }
 
@@ -464,9 +468,9 @@ int main( int args, char** argv ){
     cout << "Y " << numCellsY << endl;
     cout << "timestep " << timestep << endl;
     cout << "spaceing " << spaceing << endl;
-    cout << "accel " << acceleration << endl;
+    cout << "accel_l " << acceleration_l << endl;
     cout << "omega " << omega << endl;
-    cout << "viscosity " << viscosity_l << endl;
+    cout << "viscosity_l " << viscosity_l << endl;
 
 
 
