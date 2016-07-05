@@ -8,7 +8,7 @@
 #include "imageClass/GrayScaleImage.h"
 #include "imageClass/lodepng.h"
 
-#define TIMESTEP 0.005
+#define TIMESTEP 0.0025
 //#define SPACEING 0.0005
 
 using namespace std;
@@ -17,6 +17,7 @@ static bool scenario1 = false;
 static double viscosity_l = 0.0;
 static double timeToSimulate = 0.0;
 static double acceleration = 0.0;
+static double acceleration_l = 0.0;
 static int resolution = 0;
 static double timestep = 0.0;
 static double spaceing = 0.0;
@@ -146,14 +147,14 @@ void streamStep(){
     for( int i=2; i<lengthX-2; i++ ){
         for( int j=2; j<lengthY-2; j++ ){
             if( isBoundary(i,j)==1 ){
-                grid(i-1, j,   5) = gridCopy( i,j,1);
-                grid(i, j+1,   3) = gridCopy( i,j,7);
-                grid(i, j-1,   7) = gridCopy( i,j,3);
-                grid(i+1, j,   1) = gridCopy( i,j,5);
-                grid(i-1, j-1, 6) = gridCopy( i,j,2);
-                grid(i+1, j-1, 8) = gridCopy( i,j,4);
-                grid(i+1, j+1, 2) = gridCopy( i,j,6);
-                grid(i-1, j+1, 4) = gridCopy( i,j,8);
+                grid(i-1, j,   5) = grid( i,j,1);
+                grid(i, j+1,   3) = grid( i,j,7);
+                grid(i, j-1,   7) = grid( i,j,3);
+                grid(i+1, j,   1) = grid( i,j,5);
+                grid(i-1, j-1, 6) = grid( i,j,2);
+                grid(i+1, j-1, 8) = grid( i,j,4);
+                grid(i+1, j+1, 2) = grid( i,j,6);
+                grid(i-1, j+1, 4) = grid( i,j,8);
             }
         }
     }
@@ -276,15 +277,15 @@ void collideStep(){
                 equilibrium(j,i,8) = ein_sechs * density * (1.0 + 3.0*skalar + 4.5*skalar*skalar - 1.5* skalar_u);
 
                 // Update rule for grid
-                grid(j,i,0) = grid(j,i,0) - omega * (grid(j,i,0) - equilibrium(j,i,0)) + 3 * vier_neun * density * 0 * acceleration;
-                grid(j,i,1) = grid(j,i,1) - omega * (grid(j,i,1) - equilibrium(j,i,1)) + 3 * ein_neun * density * 1 * acceleration;
-                grid(j,i,2) = grid(j,i,2) - omega * (grid(j,i,2) - equilibrium(j,i,2)) + 3 * ein_sechs * density * 1 * acceleration;
-                grid(j,i,3) = grid(j,i,3) - omega * (grid(j,i,3) - equilibrium(j,i,3)) + 3 * ein_neun * density * 0 * acceleration;
-                grid(j,i,4) = grid(j,i,4) - omega * (grid(j,i,4) - equilibrium(j,i,4)) + 3 * ein_sechs * density * -1 * acceleration;
-                grid(j,i,5) = grid(j,i,5) - omega * (grid(j,i,5) - equilibrium(j,i,5)) + 3 * ein_neun * density * -1 * acceleration;
-                grid(j,i,6) = grid(j,i,6) - omega * (grid(j,i,6) - equilibrium(j,i,6)) + 3 * ein_sechs * density * -1 * acceleration;
-                grid(j,i,7) = grid(j,i,7) - omega * (grid(j,i,7) - equilibrium(j,i,7)) + 3 * ein_neun * density * 0 * acceleration;
-                grid(j,i,8) = grid(j,i,8) - omega * (grid(j,i,8) - equilibrium(j,i,8)) + 3 * ein_sechs * density * 1 * acceleration;
+                grid(j,i,0) = grid(j,i,0) - omega * (grid(j,i,0) - equilibrium(j,i,0)) + 3 * vier_neun * density * 0 * acceleration_l;
+                grid(j,i,1) = grid(j,i,1) - omega * (grid(j,i,1) - equilibrium(j,i,1)) + 3 * ein_neun * density * 1 * acceleration_l;
+                grid(j,i,2) = grid(j,i,2) - omega * (grid(j,i,2) - equilibrium(j,i,2)) + 3 * ein_sechs * density * 1 * acceleration_l;
+                grid(j,i,3) = grid(j,i,3) - omega * (grid(j,i,3) - equilibrium(j,i,3)) + 3 * ein_neun * density * 0 * acceleration_l;
+                grid(j,i,4) = grid(j,i,4) - omega * (grid(j,i,4) - equilibrium(j,i,4)) + 3 * ein_sechs * density * -1 * acceleration_l;
+                grid(j,i,5) = grid(j,i,5) - omega * (grid(j,i,5) - equilibrium(j,i,5)) + 3 * ein_neun * density * -1 * acceleration_l;
+                grid(j,i,6) = grid(j,i,6) - omega * (grid(j,i,6) - equilibrium(j,i,6)) + 3 * ein_sechs * density * -1 * acceleration_l;
+                grid(j,i,7) = grid(j,i,7) - omega * (grid(j,i,7) - equilibrium(j,i,7)) + 3 * ein_neun * density * 0 * acceleration_l;
+                grid(j,i,8) = grid(j,i,8) - omega * (grid(j,i,8) - equilibrium(j,i,8)) + 3 * ein_sechs * density * 1 * acceleration_l;
 
                 //cout << "density: " << density << endl;
                 density = 0.0;
@@ -427,6 +428,7 @@ int main( int args, char** argv ){
         viscosity_l = 1e-6 * (timestep/(spaceing*spaceing));
         timeToSimulate = 3.0;
         acceleration = 0.01;
+        acceleration_l = (acceleration*timestep*timestep)/spaceing;
         resolution = 30;
         omega = 1.0 / (3.0*viscosity_l + 0.5 );
         numCellsX = (int)(0.06 / spaceing);
@@ -443,6 +445,7 @@ int main( int args, char** argv ){
         viscosity_l = 1e-6 * (timestep/(spaceing*spaceing));
         timeToSimulate = 5.0;
         acceleration = 0.016;
+        acceleration_l = (acceleration*timestep*timestep)/spaceing;
         resolution = 60;
         omega = 1.0 / (3.0*viscosity_l + 0.5 );
         numCellsX = 0.06 / spaceing;
