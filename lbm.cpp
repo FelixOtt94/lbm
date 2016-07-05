@@ -9,6 +9,7 @@
 #include "imageClass/lodepng.h"
 
 #define TIMESTEP 0.0025
+
 //#define SPACEING 0.0005
 
 using namespace std;
